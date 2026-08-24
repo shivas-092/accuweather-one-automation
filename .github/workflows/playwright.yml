@@ -28,43 +28,63 @@ jobs:
       - name: Install Playwright Browsers with OS Dependencies
         run: npx playwright install --with-deps chromium
 
-      - name: Check DNS and AccuWeather Connectivity
+      - name: Network Diagnostics
         run: |
           echo "======================================"
-          echo "DNS Resolution"
+          echo "DNS"
           echo "======================================"
-
           getent hosts one.accuweather.com || true
+          getent hosts www.accuweather.com || true
 
           echo ""
           echo "======================================"
-          echo "IPv4 Connectivity - HTTP/1.1"
+          echo "AccuWeather Main Domain - IPv4"
           echo "======================================"
-
-          curl -4 --http1.1 -I -L \
+          curl -4 --http1.1 -v \
             --connect-timeout 10 \
-            --max-time 30 \
-            https://one.accuweather.com/ || true
+            --max-time 20 \
+            https://www.accuweather.com/ \
+            -o /dev/null || true
 
           echo ""
           echo "======================================"
-          echo "IPv6 Connectivity - HTTP/1.1"
+          echo "AccuWeather One - IPv4"
           echo "======================================"
-
-          curl -6 --http1.1 -I -L \
+          curl -4 --http1.1 -v \
             --connect-timeout 10 \
-            --max-time 30 \
-            https://one.accuweather.com/ || true
+            --max-time 20 \
+            https://one.accuweather.com/ \
+            -o /dev/null || true
 
           echo ""
           echo "======================================"
-          echo "Onboarding URL - IPv4 HTTP/1.1"
+          echo "AccuWeather One Onboarding - IPv4"
           echo "======================================"
-
-          curl -4 --http1.1 -I -L \
+          curl -4 --http1.1 -v \
             --connect-timeout 10 \
-            --max-time 30 \
-            https://one.accuweather.com/account/onboarding || true
+            --max-time 20 \
+            https://one.accuweather.com/account/onboarding \
+            -o /dev/null || true
+
+          echo ""
+          echo "======================================"
+          echo "AccuWeather Main Domain - IPv6"
+          echo "======================================"
+          curl -6 --http1.1 -v \
+            --connect-timeout 10 \
+            --max-time 20 \
+            https://www.accuweather.com/ \
+            -o /dev/null || true
+
+          echo ""
+          echo "======================================"
+          echo "AccuWeather One - IPv6"
+          echo "======================================"
+          curl -6 --http1.1 -v \
+            --connect-timeout 10 \
+            --max-time 20 \
+            https://one.accuweather.com/ \
+            -o /dev/null || true
 
       - name: Run Playwright Tests
         run: npx playwright test
