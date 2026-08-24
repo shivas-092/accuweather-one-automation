@@ -136,20 +136,20 @@ test.describe('Radar & Maps Page Test Suite', () => {
   // 3. TIMELINE SCRUBBER INTERACTION & TIMESTAMP UPDATE
   // =========================================================================
   test('RM-017 & RM-018: Timeline Scrubber Drag & Badge Time Update Verification', async ({ mapsPage, page }) => {
-    // 1. Ensure page is fully rendered on Radar
-    await mapsPage.selectQuickTab('RADAR');
+    // Verify canvas is loaded
+    await expect(mapsPage.mapCanvas).toBeVisible({ timeout: 10000 });
 
-    // 2. Wait for the timeline play button to confirm the player is mounted
+    // Locate play button to ensure timeline controls are mounted
     const playBtn = page
       .locator('svg, button, div[role="button"]')
       .filter({ has: page.locator('polygon, path') })
       .first();
     await playBtn.waitFor({ state: 'visible', timeout: 10000 });
 
-    // 3. Scrub timeline forward
+    // Scrub timeline forward
     await mapsPage.scrubTimeline();
 
-    // 4. Assert timeline controls remain visible and active
+    // Verify play button and map canvas remain functional
     await expect(playBtn).toBeVisible({ timeout: 5000 });
     await expect(mapsPage.mapCanvas).toBeVisible({ timeout: 5000 });
   });

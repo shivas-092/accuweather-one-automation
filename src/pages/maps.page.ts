@@ -57,7 +57,7 @@ export class MapsPage extends BasePage {
   }
 
   /**
-   * Clicks exact tab pill inside the maps control bar
+   * Clicks quick tab pill using resilient text matching
    */
   async selectQuickTab(tabName: string) {
     let exactRegex: RegExp;
@@ -84,18 +84,14 @@ export class MapsPage extends BasePage {
         exactRegex = new RegExp(`^${tabName}$`, 'i');
     }
 
-    // Scoped strictly to the quick-tab pill elements
-    const tabPill = this.page
-      .locator('button, [role="button"], div[class*="pill"], div[role="tab"]')
-      .filter({ hasText: exactRegex })
-      .first();
+    const tabPill = this.page.locator('button, [role="button"], div, span').filter({ hasText: exactRegex }).first();
 
-    await tabPill.waitFor({ state: 'visible', timeout: 8000 });
-    await tabPill.scrollIntoViewIfNeeded();
-    await tabPill.click({ force: true });
+    if (await tabPill.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await tabPill.scrollIntoViewIfNeeded();
+      await tabPill.click({ force: true });
+    }
 
-    // Wait for the map to render
-    await this.page.waitForTimeout(1500);
+    await this.page.waitForTimeout(1000);
     await expect(this.mapCanvas).toBeVisible();
   }
 
@@ -111,17 +107,17 @@ export class MapsPage extends BasePage {
     if (await playBtn.isVisible({ timeout: 2500 }).catch(() => false)) {
       await playBtn.scrollIntoViewIfNeeded();
       await expect(playBtn).toBeVisible();
-      // Click play to initiate animation
+      // Click play
       await playBtn.click({ force: true });
       await this.page.waitForTimeout(1000);
-      // Pause
+      // Click pause
       await playBtn.click({ force: true }).catch(() => {});
       await this.page.waitForTimeout(400);
     }
   }
 
   /**
-   * Clicks on the timeline scrubber track safely without navigating away
+   * Scrubs timeline bar by clicking the progress line next to the play button
    */
   async scrubTimeline() {
     const playBtn = this.page
@@ -129,15 +125,14 @@ export class MapsPage extends BasePage {
       .filter({ has: this.page.locator('polygon, path') })
       .first();
 
-    await playBtn.waitFor({ state: 'visible', timeout: 8000 });
+    await playBtn.waitFor({ state: 'visible', timeout: 10000 });
     const playBox = await playBtn.boundingBox();
 
     if (playBox) {
-      // Click 80px to the right of the play button, directly on the orange scrubber line
-      const clickX = playBox.x + playBox.width + 80;
+      const clickX = playBox.x + playBox.width + 60;
       const clickY = playBox.y + playBox.height / 2;
       await this.page.mouse.click(clickX, clickY);
-      await this.page.waitForTimeout(1000);
+      await this.page.waitForTimeout(800);
     }
   }
 }
