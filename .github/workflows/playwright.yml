@@ -32,6 +32,7 @@ jobs:
         run: npx playwright test
         env:
           CI: true
+          AUTH_STATE_JSON: ${{ secrets.AUTH_STATE_JSON }}
 
       - name: Upload Playwright Test Report
         uses: actions/upload-artifact@v4

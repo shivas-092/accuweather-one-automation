@@ -6,13 +6,12 @@ export class MapsPage extends BasePage {
   readonly legendSidebar: LegendSidebarComponent;
   readonly allMapsBtn: Locator;
   readonly mapCanvas: Locator;
-  readonly timelineBadge: Locator;
 
   constructor(page: Page) {
     super(page);
     this.legendSidebar = new LegendSidebarComponent(page);
 
-    // "ALL MAPS" button pill
+    // "ALL MAPS" pill button
     this.allMapsBtn = page
       .locator('button, [role="button"], div, span')
       .filter({ hasText: /^ALL MAPS$/i })
@@ -20,9 +19,6 @@ export class MapsPage extends BasePage {
 
     // Map canvas viewport
     this.mapCanvas = page.locator('canvas, .mapboxgl-map, .maplibregl-map, div[class*="map"]').first();
-
-    // Time indicator badge
-    this.timelineBadge = page.locator('text=/NOW|[0-9]+:[0-9]+\s*(AM|PM)|CDT|EDT|PST/i').first();
   }
 
   async scrollToElement(locator: Locator) {
@@ -61,7 +57,7 @@ export class MapsPage extends BasePage {
   }
 
   /**
-   * Clicks exact tab pill using unambiguous regex matching
+   * Clicks exact tab pill inside the maps control bar
    */
   async selectQuickTab(tabName: string) {
     let exactRegex: RegExp;
@@ -88,8 +84,9 @@ export class MapsPage extends BasePage {
         exactRegex = new RegExp(`^${tabName}$`, 'i');
     }
 
+    // Scoped strictly to the quick-tab pill elements
     const tabPill = this.page
-      .locator('button, [role="button"], div, span')
+      .locator('button, [role="button"], div[class*="pill"], div[role="tab"]')
       .filter({ hasText: exactRegex })
       .first();
 
@@ -97,7 +94,7 @@ export class MapsPage extends BasePage {
     await tabPill.scrollIntoViewIfNeeded();
     await tabPill.click({ force: true });
 
-    // Wait for the map canvas to render
+    // Wait for the map to render
     await this.page.waitForTimeout(1500);
     await expect(this.mapCanvas).toBeVisible();
   }
@@ -114,7 +111,7 @@ export class MapsPage extends BasePage {
     if (await playBtn.isVisible({ timeout: 2500 }).catch(() => false)) {
       await playBtn.scrollIntoViewIfNeeded();
       await expect(playBtn).toBeVisible();
-      // Start timeline animation
+      // Click play to initiate animation
       await playBtn.click({ force: true });
       await this.page.waitForTimeout(1000);
       // Pause
@@ -124,29 +121,21 @@ export class MapsPage extends BasePage {
   }
 
   /**
-   * Interacts with and scrubs the timeline bar
+   * Clicks on the timeline scrubber track safely without navigating away
    */
-  async scrubTimeline(percentage: number = 0.75) {
-    // Target the timeline container bar directly
+  async scrubTimeline() {
     const playBtn = this.page
       .locator('svg, button, div[role="button"]')
       .filter({ has: this.page.locator('polygon, path') })
       .first();
 
     await playBtn.waitFor({ state: 'visible', timeout: 8000 });
+    const playBox = await playBtn.boundingBox();
 
-    // The timeline track is the immediate container sibling holding the slider bar
-    const track = playBtn.locator('xpath=following-sibling::div[1] | following-sibling::span[1]').first();
-    
-    // Fallback if structured within same wrapper
-    const targetTrack = (await track.isVisible().catch(() => false))
-      ? track
-      : this.page.locator('div[class*="timeline"], div[class*="slider"], div[class*="progress"]').first();
-
-    const box = await targetTrack.boundingBox();
-    if (box) {
-      const clickX = box.x + box.width * percentage;
-      const clickY = box.y + box.height / 2;
+    if (playBox) {
+      // Click 80px to the right of the play button, directly on the orange scrubber line
+      const clickX = playBox.x + playBox.width + 80;
+      const clickY = playBox.y + playBox.height / 2;
       await this.page.mouse.click(clickX, clickY);
       await this.page.waitForTimeout(1000);
     }

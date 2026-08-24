@@ -1,89 +1,49 @@
-import { chromium, FullConfig } from '@playwright/test';
-import { ENV } from './environment';
-import * as path from 'path';
+import { test as setup, expect } from '@playwright/test';
 
-export default async function globalSetup(config: FullConfig) {
-  const browser = await chromium.launch({
-    headless: false, // Keep visible so you can watch the onboarding complete
-    args: ['--disable-blink-features=AutomationControlled', '--no-sandbox'],
-  });
+const authFile = 'state.json';
 
-  const context = await browser.newContext({
-    userAgent:
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    viewport: { width: 1440, height: 900 },
-    permissions: ['geolocation'],
-    geolocation: { latitude: 32.7767, longitude: -96.797 },
-  });
+setup('Complete Onboarding Once for Entire Project', async ({ page }) => {
+  console.log('🚀 Running setup: Completing onboarding once for all suites...');
 
-  const page = await context.newPage();
-  console.log('🚀 Running global setup: Completing onboarding sequence...');
-
-  try {
-    await page.goto(`${ENV.BASE_URL}/account/onboarding`, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(2500);
-
-    // ----------------------------------------------------
-    // STEP 1: "Do Weather Your Way"
-    // ----------------------------------------------------
-    const continueBtn = page.locator('button, a, div[role="button"]').filter({ hasText: /Continue|Done|Save|Next|Let's Go/i }).first();
-    if (await continueBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await continueBtn.click();
+  // Retry navigation in case of network edge reset
+  let navigated = false;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await page.goto('/account/onboarding', {
+        waitUntil: 'commit',
+        timeout: 20000,
+      });
+      navigated = true;
+      break;
+    } catch (err) {
+      console.warn(`⚠️ Navigation attempt ${attempt} failed, retrying...`);
       await page.waitForTimeout(2000);
     }
-
-    // ----------------------------------------------------
-    // STEP 2: "Set Primary Location"
-    // ----------------------------------------------------
-    // Wait for the input box or Use Current Location link
-    const searchBox = page.getByPlaceholder(/Search for City, Address or ZIP code/i)
-      .or(page.locator('input[type="text"], input[type="search"], input'))
-      .first();
-
-    await searchBox.waitFor({ state: 'visible', timeout: 10000 });
-    await searchBox.click();
-    await searchBox.fill('');
-    await searchBox.pressSequentially('Dallas', { delay: 120 });
-    await page.waitForTimeout(2000);
-
-    // Click the first city suggestion
-    const firstOption = page.locator('p, li, [role="option"], div')
-      .filter({ hasText: /Dallas/i })
-      .first();
-
-    if (await firstOption.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await firstOption.click();
-    } else {
-      await searchBox.press('Enter');
-    }
-    await page.waitForTimeout(2500);
-
-    // ----------------------------------------------------
-    // STEP 3: "Sign-In or Create Your Account" -> Click "Maybe Later"
-    // ----------------------------------------------------
-    const maybeLaterLink = page.locator('text="Maybe Later"').or(
-      page.locator('p, span, button, a').filter({ hasText: /^Maybe Later$/i })
-    ).first();
-
-    await maybeLaterLink.waitFor({ state: 'visible', timeout: 10000 });
-    await maybeLaterLink.click();
-
-    // ----------------------------------------------------
-    // STEP 4: Confirm we arrived on the main app
-    // ----------------------------------------------------
-    await page.waitForURL(/.*\/app\/.*/, { timeout: 15000 });
-    await page.waitForTimeout(3000);
-
-    // Save session storage
-    const statePath = path.resolve(__dirname, '../../state.json');
-    await context.storageState({ path: statePath });
-    console.log(`✅ Onboarding complete! State saved to ${statePath}`);
-  } catch (error) {
-    console.error('⚠️ Global setup error:', error);
-    // If interrupted, still capture storage state
-    const statePath = path.resolve(__dirname, '../../state.json');
-    await context.storageState({ path: statePath });
-  } finally {
-    await browser.close();
   }
-}
+
+  if (!navigated) {
+    // Fallback directly to base page
+    await page.goto('/app/today', { waitUntil: 'commit', timeout: 30000 });
+  }
+
+  await page.waitForTimeout(2000);
+
+  // Complete onboarding sequence if onboarding buttons are present
+  const nextBtn = page.locator('button, [role="button"]').filter({ hasText: /Next|Get Started|Continue|Skip/i }).first();
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < 30000) {
+    const isNextVisible = await nextBtn.isVisible({ timeout: 2000 }).catch(() => false);
+    if (!isNextVisible) break;
+
+    await nextBtn.click({ force: true }).catch(() => {});
+    await page.waitForTimeout(1000);
+  }
+
+  // Ensure landing on dashboard
+  await page.waitForURL(/.*\/app\/.*/, { timeout: 25000 }).catch(() => {});
+
+  // Save authenticated state
+  await page.context().storageState({ path: authFile });
+  console.log(`✅ Setup complete! State saved to ${authFile}`);
+});
