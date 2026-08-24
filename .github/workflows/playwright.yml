@@ -28,6 +28,28 @@ jobs:
       - name: Install Playwright Browsers with OS Dependencies
         run: npx playwright install --with-deps chromium
 
+      - name: Check AccuWeather Connectivity
+        run: |
+          echo "======================================"
+          echo "Checking AccuWeather root URL"
+          echo "======================================"
+
+          curl -I -L --max-time 30 https://one.accuweather.com/
+
+          echo ""
+          echo "======================================"
+          echo "Checking AccuWeather onboarding URL"
+          echo "======================================"
+
+          curl -I -L --max-time 30 https://one.accuweather.com/account/onboarding
+
+          echo ""
+          echo "======================================"
+          echo "DNS Resolution"
+          echo "======================================"
+
+          nslookup one.accuweather.com
+
       - name: Run Playwright Tests
         run: npx playwright test
         env:
