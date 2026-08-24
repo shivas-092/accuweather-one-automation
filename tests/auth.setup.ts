@@ -6,50 +6,69 @@ const authFile = path.resolve(__dirname, '../state.json');
 setup('Complete Onboarding Once for Entire Project', async ({ page }) => {
   console.log('🚀 Running setup: Completing onboarding once for all suites...');
 
-  page.on('framenavigated', (frame) => {
-    if (frame === page.mainFrame()) {
-      console.log(`➡️ Main frame navigated: ${frame.url()}`);
-    }
-  });
-
-  page.on('framedetached', (frame) => {
-    console.log(`⚠️ Frame detached: ${frame.url()}`);
-  });
-
   page.on('requestfailed', (request) => {
     console.log(
       `❌ Request failed: ${request.url()} | ${request.failure()?.errorText}`
     );
   });
 
-  page.on('pageerror', (error) => {
-    console.log(`❌ Page error: ${error.message}`);
+  page.on('response', (response) => {
+    if (response.url().includes('accuweather.com')) {
+      console.log(`📡 ${response.status()} ${response.url()}`);
+    }
   });
 
-  console.log('🌐 Navigating to onboarding...');
+  console.log('🌐 Navigating to AccuWeather...');
 
-  const response = await page.goto('/account/onboarding', {
-    waitUntil: 'commit',
+  await page.goto('https://www.accuweather.com/', {
+    waitUntil: 'domcontentloaded',
     timeout: 30000,
   });
 
-  console.log('✅ Initial navigation committed');
-  console.log(`📍 Current URL: ${page.url()}`);
-  console.log(`📡 Response status: ${response?.status() ?? 'N/A'}`);
+  await page.waitForTimeout(3000);
 
-  await page
-    .waitForLoadState('domcontentloaded', {
-      timeout: 15000,
-    })
-    .catch(() => {
-      console.log(
-        '⚠️ DOMContentLoaded was not reached within 15 seconds. Continuing...'
-      );
-    });
+  console.log(`📍 Initial URL: ${page.url()}`);
 
-  console.log(`📍 URL after initial load: ${page.url()}`);
+  if (page.url().includes('/app/')) {
+    console.log('🎉 Existing session landed directly in the application.');
+    await page.context().storageState({ path: authFile });
+    console.log(`✅ State saved to ${authFile}`);
+    return;
+  }
 
-  await page.waitForTimeout(2000);
+  const onboardingUrls = [
+    'https://one.accuweather.com/account/onboarding',
+    'https://www.accuweather.com/account/onboarding',
+  ];
+
+  let onboardingLoaded = false;
+
+  for (const onboardingUrl of onboardingUrls) {
+    try {
+      console.log(`🌐 Trying onboarding URL: ${onboardingUrl}`);
+
+      await page.goto(onboardingUrl, {
+        waitUntil: 'domcontentloaded',
+        timeout: 20000,
+      });
+
+      await page.waitForTimeout(2000);
+
+      console.log(`📍 Current URL: ${page.url()}`);
+
+      onboardingLoaded = true;
+      break;
+    } catch (error) {
+      console.log(`⚠️ Navigation failed: ${onboardingUrl}`);
+      console.log(`⚠️ ${error}`);
+    }
+  }
+
+  if (!onboardingLoaded) {
+    throw new Error(
+      '❌ Unable to reach the AccuWeather onboarding page from the CI runner.'
+    );
+  }
 
   const startTime = Date.now();
   const MAX_SETUP_TIME = 40000;
@@ -71,12 +90,9 @@ setup('Complete Onboarding Once for Entire Project', async ({ page }) => {
         .isVisible()
         .catch(() => false))
     ) {
-      console.log('➡️ Processing onboarding step...');
-
       const dialBtn = page.locator('text="Dial"').first();
 
       if (await dialBtn.isVisible().catch(() => false)) {
-        console.log('🎛️ Selecting Dial...');
         await dialBtn.click().catch(() => {});
       }
 
@@ -88,12 +104,8 @@ setup('Complete Onboarding Once for Entire Project', async ({ page }) => {
         .last();
 
       if (await nextBtn.isVisible().catch(() => false)) {
-        console.log('➡️ Clicking onboarding action button...');
-
         await nextBtn.click({ force: true }).catch(() => {});
-
         await page.waitForTimeout(1500);
-
         continue;
       }
     }
@@ -105,8 +117,6 @@ setup('Complete Onboarding Once for Entire Project', async ({ page }) => {
         .isVisible()
         .catch(() => false))
     ) {
-      console.log('📍 Processing primary location...');
-
       const searchBox = page
         .getByPlaceholder(/search/i)
         .or(page.getByRole('textbox'))
@@ -137,15 +147,12 @@ setup('Complete Onboarding Once for Entire Project', async ({ page }) => {
             .isVisible({ timeout: 4000 })
             .catch(() => false)
         ) {
-          console.log('📍 Selecting Dallas suggestion...');
           await suggestion.click();
         } else {
-          console.log('↩️ Suggestion not found. Pressing Enter...');
           await searchBox.press('Enter');
         }
 
         await page.waitForTimeout(1500);
-
         continue;
       }
     }
@@ -161,8 +168,6 @@ setup('Complete Onboarding Once for Entire Project', async ({ page }) => {
         .isVisible()
         .catch(() => false))
     ) {
-      console.log('➡️ Processing account creation screen...');
-
       const maybeLater = page
         .locator('text="Maybe Later"')
         .or(
@@ -179,8 +184,6 @@ setup('Complete Onboarding Once for Entire Project', async ({ page }) => {
           .isVisible({ timeout: 5000 })
           .catch(() => false)
       ) {
-        console.log('⏭️ Clicking Maybe Later...');
-
         await maybeLater
           .scrollIntoViewIfNeeded()
           .catch(() => {});
@@ -190,7 +193,6 @@ setup('Complete Onboarding Once for Entire Project', async ({ page }) => {
           .catch(() => {});
 
         await page.waitForTimeout(2000);
-
         continue;
       }
     }
@@ -198,15 +200,13 @@ setup('Complete Onboarding Once for Entire Project', async ({ page }) => {
     await page.waitForTimeout(500);
   }
 
-  console.log(`🏁 Final URL before validation: ${page.url()}`);
+  console.log(`🏁 Final URL: ${page.url()}`);
 
   await page.waitForURL(/.*\/app\/.*/, {
     timeout: 15000,
   });
 
   await page.waitForTimeout(2000);
-
-  console.log(`🎉 Setup finished on: ${page.url()}`);
 
   await page.context().storageState({
     path: authFile,
