@@ -6,34 +6,22 @@ export class MapsPage extends BasePage {
   readonly legendSidebar: LegendSidebarComponent;
   readonly allMapsBtn: Locator;
   readonly mapCanvas: Locator;
-
-  // Timeline Controls
-  readonly timelinePlayBtn: Locator;
-  readonly timelineTrack: Locator;
   readonly timelineBadge: Locator;
 
   constructor(page: Page) {
     super(page);
     this.legendSidebar = new LegendSidebarComponent(page);
 
-    // "ALL MAPS" pill button
+    // "ALL MAPS" button pill
     this.allMapsBtn = page
       .locator('button, [role="button"], div, span')
       .filter({ hasText: /^ALL MAPS$/i })
       .first();
 
-    // Map viewport canvas
+    // Map canvas viewport
     this.mapCanvas = page.locator('canvas, .mapboxgl-map, .maplibregl-map, div[class*="map"]').first();
 
-    // Timeline player elements
-    this.timelineTrack = page
-      .locator('div[class*="timeline"], div[class*="slider"], div[class*="progress"]')
-      .or(page.locator('div').filter({ has: page.locator('text=/NOW/i') }))
-      .last();
-    this.timelinePlayBtn = page
-      .locator('svg, button, div[role="button"]')
-      .filter({ has: page.locator('polygon, path') })
-      .first();
+    // Time indicator badge
     this.timelineBadge = page.locator('text=/NOW|[0-9]+:[0-9]+\s*(AM|PM)|CDT|EDT|PST/i').first();
   }
 
@@ -64,7 +52,7 @@ export class MapsPage extends BasePage {
   async selectLayerInModal(layerName: string) {
     const layerItem = this.page
       .locator('div, li, button, p, span')
-      .filter({ hasText: new RegExp(`^${layerName}$|${layerName}`, 'i') })
+      .filter({ hasText: new RegExp(`^${layerName}$`, 'i') })
       .first();
 
     await layerItem.scrollIntoViewIfNeeded();
@@ -73,30 +61,41 @@ export class MapsPage extends BasePage {
   }
 
   /**
-   * Clicks the exact tab in the top bar using unambiguous exact matching
+   * Clicks exact tab pill using unambiguous regex matching
    */
   async selectQuickTab(tabName: string) {
-    let tabLocator: Locator;
-
-    if (tabName === 'RADAR') {
-      tabLocator = this.page.locator('button, [role="button"], div, span').filter({ hasText: /^RADAR$/i }).first();
-    } else if (tabName === 'CLOUDS') {
-      tabLocator = this.page.locator('button, [role="button"], div, span').filter({ hasText: /^CLOUDS$|COLOR-ENHANCED CLOUDS/i }).first();
-    } else if (tabName.includes('TEMPERATURE (°F)') || tabName === 'TEMPERATURE') {
-      tabLocator = this.page.locator('button, [role="button"], div, span').filter({ hasText: /^TEMPERATURE\s*\(\s*°F\s*\)$/i }).first();
-    } else if (tabName.includes('WIND FLOW')) {
-      tabLocator = this.page.locator('button, [role="button"], div, span').filter({ hasText: /^WIND FLOW\s*\(\s*MPH\s*\)$/i }).first();
-    } else if (tabName.includes('AIR QUALITY')) {
-      tabLocator = this.page.locator('button, [role="button"], div, span').filter({ hasText: /^AIR QUALITY INDEX$/i }).first();
-    } else if (tabName.includes('TEMPERATURE FORECAST')) {
-      tabLocator = this.page.locator('button, [role="button"], div, span').filter({ hasText: /^TEMPERATURE FORECAST$/i }).first();
-    } else {
-      tabLocator = this.page.locator('button, [role="button"], div, span').filter({ hasText: new RegExp(`^${tabName}$`, 'i') }).first();
+    let exactRegex: RegExp;
+    switch (tabName) {
+      case 'RADAR':
+        exactRegex = /^RADAR$/i;
+        break;
+      case 'CLOUDS':
+        exactRegex = /^CLOUDS$/i;
+        break;
+      case 'TEMPERATURE (°F)':
+        exactRegex = /^TEMPERATURE\s*\(\s*°F\s*\)$/i;
+        break;
+      case 'WIND FLOW (MPH)':
+        exactRegex = /^WIND FLOW\s*\(\s*MPH\s*\)$/i;
+        break;
+      case 'AIR QUALITY INDEX':
+        exactRegex = /^AIR QUALITY INDEX$/i;
+        break;
+      case 'TEMPERATURE FORECAST':
+        exactRegex = /^TEMPERATURE FORECAST$/i;
+        break;
+      default:
+        exactRegex = new RegExp(`^${tabName}$`, 'i');
     }
 
-    await tabLocator.waitFor({ state: 'visible', timeout: 8000 });
-    await tabLocator.scrollIntoViewIfNeeded();
-    await tabLocator.click({ force: true });
+    const tabPill = this.page
+      .locator('button, [role="button"], div, span')
+      .filter({ hasText: exactRegex })
+      .first();
+
+    await tabPill.waitFor({ state: 'visible', timeout: 8000 });
+    await tabPill.scrollIntoViewIfNeeded();
+    await tabPill.click({ force: true });
 
     // Wait for the map canvas to render
     await this.page.waitForTimeout(1500);
@@ -107,19 +106,37 @@ export class MapsPage extends BasePage {
    * Verifies the timeline play button under the active tab
    */
   async verifyTimelinePlayButton() {
-    const playBtn = this.page.locator('svg, button, div[role="button"]').filter({ has: this.page.locator('polygon, path') }).first();
+    const playBtn = this.page
+      .locator('svg, button, div[role="button"]')
+      .filter({ has: this.page.locator('polygon, path') })
+      .first();
 
     if (await playBtn.isVisible({ timeout: 2500 }).catch(() => false)) {
       await playBtn.scrollIntoViewIfNeeded();
       await expect(playBtn).toBeVisible();
-      // Click play
+      // Start timeline animation
       await playBtn.click({ force: true });
       await this.page.waitForTimeout(1000);
       // Pause
       await playBtn.click({ force: true }).catch(() => {});
       await this.page.waitForTimeout(400);
-    } else {
-      console.log('ℹ️ Static layer: Timeline play button is not applicable.');
+    }
+  }
+
+  /**
+   * Drags/clicks across the timeline track bar
+   */
+  async scrubTimeline(percentage: number = 0.75) {
+    const track = this.page.locator('div').filter({ hasText: /NOW|\b\d{1,2}:\d{2}\b/i }).last();
+    await track.scrollIntoViewIfNeeded();
+    await track.waitFor({ state: 'visible', timeout: 5000 });
+
+    const box = await track.boundingBox();
+    if (box) {
+      const clickX = box.x + box.width * percentage;
+      const clickY = box.y + box.height / 2;
+      await this.page.mouse.click(clickX, clickY);
+      await this.page.waitForTimeout(1000);
     }
   }
 }

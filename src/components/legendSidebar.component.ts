@@ -1,4 +1,4 @@
-import { Page, Locator, expect } from '@playwright/test';
+import { Page, expect } from '@playwright/test';
 
 export class LegendSidebarComponent {
   readonly page: Page;
@@ -8,35 +8,43 @@ export class LegendSidebarComponent {
   }
 
   /**
-   * Opens Legend on the right edge, verifies the title and markers, then collapses it
+   * Opens the Legend drawer on the right edge, verifies title & scale markers, and collapses it.
    */
   async verifyAndCloseLegend(legendTitle: string, expectedMarkers: string[]) {
-    // 1. Check if legend drawer is currently collapsed
-    const legendTab = this.page.locator('div, span, button, aside, p').filter({ hasText: /^Legend/i }).last();
+    // 1. Open the legend sidebar if collapsed
+    const legendTab = this.page
+      .locator('button, div[role="button"], span, div')
+      .filter({ hasText: /^Legend/i })
+      .last();
 
-    if (await legendTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await legendTab.isVisible({ timeout: 2500 }).catch(() => false)) {
       await legendTab.click({ force: true });
-      await this.page.waitForTimeout(1000); // Wait for sliding animation
+      await this.page.waitForTimeout(800);
     }
 
     // 2. Verify Legend Header Title (e.g. RADAR, CLOUDS, TEMPERATURE, WIND, AIR QUALITY INDEX)
-    const titleEl = this.page.locator('aside, section, div').filter({
-      hasText: new RegExp(legendTitle.replace(/[()]/g, '\\$&'), 'i'),
-    }).last();
+    const titleEl = this.page
+      .locator('aside, section, div')
+      .filter({ hasText: new RegExp(`^${legendTitle.replace(/[()]/g, '\\$&')}$|${legendTitle.replace(/[()]/g, '\\$&')}`, 'i') })
+      .last();
     await expect(titleEl).toBeVisible({ timeout: 5000 });
 
-    // 3. Verify scale readings
+    // 3. Verify scale markers inside the open card
     for (const marker of expectedMarkers) {
-      const markerEl = this.page.locator(`text=/${marker}/i`).first();
-      if (await markerEl.isVisible({ timeout: 2500 }).catch(() => false)) {
+      const markerEl = this.page.locator(`text=/${marker.replace(/[()]/g, '\\$&')}/i`).first();
+      if (await markerEl.isVisible({ timeout: 2000 }).catch(() => false)) {
         await expect(markerEl).toBeVisible();
       }
     }
-    await this.page.waitForTimeout(1200); // Visual pause to view the verified scale
+    await this.page.waitForTimeout(600);
 
-    // 4. Click the bottom collapse arrow '>' or the open header to collapse the drawer
-    const collapseArrow = this.page.locator('aside, section, div').filter({ hasText: /›|>|RADAR|CLOUDS|TEMPERATURE|WIND|AIR QUALITY/i }).last();
-    await collapseArrow.click({ force: true });
-    await this.page.waitForTimeout(800); // Allow drawer to slide shut
+    // 4. Click the bottom collapse arrow '>' or card header to close it
+    const collapseBtn = this.page
+      .locator('aside, section, div')
+      .filter({ hasText: /›|>|RADAR|CLOUDS|TEMPERATURE|WIND|AIR QUALITY INDEX/i })
+      .last();
+
+    await collapseBtn.click({ force: true });
+    await this.page.waitForTimeout(600);
   }
 }

@@ -1,5 +1,4 @@
 import { test, expect } from '../src/fixtures/baseTest';
-import { dragSliderByPercentage } from '../src/utils/helpers';
 
 test.describe('Radar & Maps Page Test Suite', () => {
   test.beforeEach(async ({ mapsPage }) => {
@@ -84,7 +83,7 @@ test.describe('Radar & Maps Page Test Suite', () => {
   // 2. STRICT SEQUENTIAL ORDER: CLICK TAB -> MAP LOAD -> LEGEND VERIFY -> CLOSE LEGEND -> PLAY BUTTON
   // =========================================================================
   test('RM-011 to RM-016: Sequential Tabs Verification (Map Render, Legend Scale & Play Button)', async ({ mapsPage }) => {
-    test.setTimeout(120000);
+    test.setTimeout(120000); // 2 minutes timeout for 6 tabs
 
     const tabsSequence = [
       {
@@ -134,21 +133,11 @@ test.describe('Radar & Maps Page Test Suite', () => {
   });
 
   // =========================================================================
-  // 3. TIMELINE SCRUBBER DRAG INTERACTION
+  // 3. TIMELINE SCRUBBER INTERACTION & TIMESTAMP UPDATE
   // =========================================================================
-  test('RM-017 & RM-018: Timeline Scrubber Drag & Badge Time Update Verification', async ({ mapsPage, page }) => {
+  test('RM-017 & RM-018: Timeline Scrubber Drag & Badge Time Update Verification', async ({ mapsPage }) => {
     await mapsPage.selectQuickTab('RADAR');
-    await page.waitForTimeout(1000);
-
-    const playBtn = page.locator('svg, button, div[role="button"]').filter({ has: page.locator('polygon, path') }).first();
-    const timelineBar = playBtn.locator('..').locator('div, span').filter({ hasText: /NOW|[0-9]+:[0-9]+/i }).first();
-
-    await timelineBar.scrollIntoViewIfNeeded();
-    await timelineBar.waitFor({ state: 'visible', timeout: 8000 });
-
-    await dragSliderByPercentage(page, timelineBar, 0.75);
-    await page.waitForTimeout(1000);
-
-    await expect(page.locator('text=/NOW|[0-9]+:[0-9]+\s*(AM|PM)|CDT|EDT|PST/i').first()).toBeVisible();
+    await mapsPage.scrubTimeline(0.75);
+    await expect(mapsPage.timelineBadge).toBeVisible();
   });
 });
