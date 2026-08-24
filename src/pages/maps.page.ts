@@ -124,14 +124,26 @@ export class MapsPage extends BasePage {
   }
 
   /**
-   * Drags/clicks across the timeline track bar
+   * Interacts with and scrubs the timeline bar
    */
   async scrubTimeline(percentage: number = 0.75) {
-    const track = this.page.locator('div').filter({ hasText: /NOW|\b\d{1,2}:\d{2}\b/i }).last();
-    await track.scrollIntoViewIfNeeded();
-    await track.waitFor({ state: 'visible', timeout: 5000 });
+    // Target the timeline container bar directly
+    const playBtn = this.page
+      .locator('svg, button, div[role="button"]')
+      .filter({ has: this.page.locator('polygon, path') })
+      .first();
 
-    const box = await track.boundingBox();
+    await playBtn.waitFor({ state: 'visible', timeout: 8000 });
+
+    // The timeline track is the immediate container sibling holding the slider bar
+    const track = playBtn.locator('xpath=following-sibling::div[1] | following-sibling::span[1]').first();
+    
+    // Fallback if structured within same wrapper
+    const targetTrack = (await track.isVisible().catch(() => false))
+      ? track
+      : this.page.locator('div[class*="timeline"], div[class*="slider"], div[class*="progress"]').first();
+
+    const box = await targetTrack.boundingBox();
     if (box) {
       const clickX = box.x + box.width * percentage;
       const clickY = box.y + box.height / 2;
