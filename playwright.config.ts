@@ -26,7 +26,7 @@ export default defineConfig({
   ],
 
   use: {
-    baseURL: 'https://one.accuweather.com',
+    baseURL: 'https://www.accuweather.com',
 
     navigationTimeout: 30000,
 
@@ -41,9 +41,6 @@ export default defineConfig({
       height: 720,
     },
 
-    userAgent:
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-
     extraHTTPHeaders: {
       'Accept-Language': 'en-US,en;q=0.9',
     },
@@ -51,13 +48,8 @@ export default defineConfig({
     launchOptions: {
       args: [
         '--disable-http2',
-        '--disable-blink-features=AutomationControlled',
         '--no-sandbox',
         '--disable-setuid-sandbox',
-        '--disable-infobars',
-        '--window-position=0,0',
-        '--ignore-certificate-errors',
-        '--ignore-certificate-errors-spki-list',
       ],
     },
   },
