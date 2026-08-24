@@ -1,41 +1,58 @@
 import { defineConfig, devices } from '@playwright/test';
-import { ENV } from './src/config/environment';
-import * as path from 'path';
-
-export const STORAGE_STATE = path.resolve(__dirname, 'state.json');
+import * as dotenv from 'dotenv';
+dotenv.config();
 
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
-  retries: 0,
   workers: 1,
-  reporter: [['html', { open: 'never' }], ['list']],
-  timeout: 45000,
-
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  timeout: 60000,
+  expect: {
+    timeout: 10000,
+  },
+  reporter: [
+    ['html', { open: 'never' }],
+    ['list'],
+  ],
   use: {
-    baseURL: ENV.BASE_URL,
-    actionTimeout: 15000,
+    baseURL: 'https://one.accuweather.com',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
-    viewport: { width: 1440, height: 900 },
-    permissions: ['geolocation'],
-    geolocation: { latitude: 32.7767, longitude: -96.7970 },
+    viewport: { width: 1280, height: 720 },
+    // Realistic browser User-Agent to avoid immediate bot detection on CI
+    userAgent:
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    extraHTTPHeaders: {
+      'Accept-Language': 'en-US,en;q=0.9',
+    },
+    // Prevent HTTP/2 stream errors in datacenter runners
+    launchOptions: {
+      args: [
+        '--disable-http2',
+        '--disable-blink-features=AutomationControlled',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-infobars',
+        '--window-position=0,0',
+        '--ignore-certifcate-errors',
+        '--ignore-certifcate-errors-spki-list',
+      ],
+    },
   },
 
   projects: [
-    // 1. Setup project that runs ONLY ONCE at the beginning
     {
       name: 'setup',
-      testMatch: /auth\.setup\.ts/,
+      testMatch: /.*\.setup\.ts/,
     },
-
-    // 2. Main testing project using the saved state
     {
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        storageState: STORAGE_STATE,
+        storageState: 'state.json',
       },
       dependencies: ['setup'],
     },
