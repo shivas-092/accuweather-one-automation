@@ -19,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: "npm"
 
       - name: Install dependencies
@@ -28,27 +28,43 @@ jobs:
       - name: Install Playwright Browsers with OS Dependencies
         run: npx playwright install --with-deps chromium
 
-      - name: Check AccuWeather Connectivity
+      - name: Check DNS and AccuWeather Connectivity
         run: |
-          echo "======================================"
-          echo "Checking AccuWeather root URL"
-          echo "======================================"
-
-          curl --http1.1 -I -L --max-time 30 https://one.accuweather.com/
-
-          echo ""
-          echo "======================================"
-          echo "Checking AccuWeather onboarding URL"
-          echo "======================================"
-
-          curl --http1.1 -I -L --max-time 30 https://one.accuweather.com/account/onboarding
-
-          echo ""
           echo "======================================"
           echo "DNS Resolution"
           echo "======================================"
 
-          nslookup one.accuweather.com
+          getent hosts one.accuweather.com || true
+
+          echo ""
+          echo "======================================"
+          echo "IPv4 Connectivity - HTTP/1.1"
+          echo "======================================"
+
+          curl -4 --http1.1 -I -L \
+            --connect-timeout 10 \
+            --max-time 30 \
+            https://one.accuweather.com/ || true
+
+          echo ""
+          echo "======================================"
+          echo "IPv6 Connectivity - HTTP/1.1"
+          echo "======================================"
+
+          curl -6 --http1.1 -I -L \
+            --connect-timeout 10 \
+            --max-time 30 \
+            https://one.accuweather.com/ || true
+
+          echo ""
+          echo "======================================"
+          echo "Onboarding URL - IPv4 HTTP/1.1"
+          echo "======================================"
+
+          curl -4 --http1.1 -I -L \
+            --connect-timeout 10 \
+            --max-time 30 \
+            https://one.accuweather.com/account/onboarding || true
 
       - name: Run Playwright Tests
         run: npx playwright test
