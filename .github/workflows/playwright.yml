@@ -34,14 +34,14 @@ jobs:
           echo "Checking AccuWeather root URL"
           echo "======================================"
 
-          curl -I -L --max-time 30 https://one.accuweather.com/
+          curl --http1.1 -I -L --max-time 30 https://one.accuweather.com/
 
           echo ""
           echo "======================================"
           echo "Checking AccuWeather onboarding URL"
           echo "======================================"
 
-          curl -I -L --max-time 30 https://one.accuweather.com/account/onboarding
+          curl --http1.1 -I -L --max-time 30 https://one.accuweather.com/account/onboarding
 
           echo ""
           echo "======================================"
